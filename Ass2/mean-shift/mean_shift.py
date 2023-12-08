@@ -30,10 +30,20 @@ for zeta in [1, 4]:
             # points. Note that for each point, you should compute the distance
             # to _all_ other points, not only the points in the current chunk.
             chunk = shifted[to_do[:simul]].clone()
-
             # TODO: Mean shift iterations, writing back the result into shifted
-            shifted[to_do[:simul]] = chunk.clone()
-            cond = chunk.new_ones(chunk.shape[0]).to(th.bool)
+            for i in range(chunk.shape[0]):
+
+                all = chunk
+                distances = th.cdist(all - chunk[i],p = 2.0)
+
+                weights = 3/4 * (1 - ( distances/ h)**2 ) * (distances <= h)
+
+                shift_up = th.sum(weights.view(-1, 1) * chunk, dim=0)
+                shift_down = th.sum(weights)
+
+                shifted[to_do[i]] = shift_up / shift_down
+
+            cond = th.cdist( shifted[to_do[:simul]] - chunk, p = 2.0) < 1e-6
 
             # We only keep the points for which the stopping criterion is not
             # met. `cond` should be a boolean array of length `simul` that
@@ -43,6 +53,6 @@ for zeta in [1, 4]:
             )]
         # Reference images were saved using this code.
         imageio.imwrite(
-            f'./reference/{M}/zeta_{zeta:1.1f}_h_{h:.2f}.png',
+            f'./reference/{M}/test_{zeta:1.1f}_h_{h:.2f}.png',
             (shifted * 255.).to(th.uint8).reshape(M, M, 5)[..., :3].cpu().numpy()
         )
