@@ -12,14 +12,14 @@ simul = M**2
 
 im = th.from_numpy(imageio.imread(f'./{M}.png') / 255.).to(device)
 
-for zeta in [1, 4]:
+for zeta in [1.8]:
     y, x = th.meshgrid(
         th.linspace(-zeta, zeta, M, device=device),
         th.linspace(-zeta, zeta, M, device=device),
         indexing='xy'
     )
     features = th.cat((im, y[..., None], x[..., None]), dim=-1).reshape(-1, 5)
-    for h in [0.1, 0.3]:
+    for h in [0.8]:
         # The `shifted` array contains the iteration variables
         shifted = features.clone()
         # The `to_do` array contains the indices of the pixels for which the
@@ -31,19 +31,14 @@ for zeta in [1, 4]:
             # to _all_ other points, not only the points in the current chunk.
             chunk = shifted[to_do[:simul]].clone()
             # TODO: Mean shift iterations, writing back the result into shifted
-            for i in range(chunk.shape[0]):
 
-                all = chunk
-                distances = th.cdist(all - chunk[i],p = 2.0)
+            distances = th.cdist(chunk,features, 2)
 
-                weights = 3/4 * (1 - ( distances/ h)**2 ) * (distances <= h)
+            for d in range(distances.shape[0]):
+                shifted[to_do[d]] = th.sum(features * (distances[d]**2 <= h**2)[:, None], dim = 0) / th.sum((distances[d]**2 <= h**2), dim = 0)
 
-                shift_up = th.sum(weights.view(-1, 1) * chunk, dim=0)
-                shift_down = th.sum(weights)
 
-                shifted[to_do[i]] = shift_up / shift_down
-
-            cond = th.cdist( shifted[to_do[:simul]] - chunk, p = 2.0) < 1e-6
+            cond = (th.norm(shifted[to_do[:simul]] - chunk, dim = 1) >= 1e-6)
 
             # We only keep the points for which the stopping criterion is not
             # met. `cond` should be a boolean array of length `simul` that
@@ -51,8 +46,9 @@ for zeta in [1, 4]:
             to_do = to_do[th.cat(
                 (cond, cond.new_ones(to_do.shape[0] - cond.shape[0]))
             )]
+            print(len(to_do))
         # Reference images were saved using this code.
         imageio.imwrite(
-            f'./reference/{M}/test_{zeta:1.1f}_h_{h:.2f}.png',
+            f'./reference/{M}/8C_zeta_{zeta:1.1f}_h_{h:.2f}.png',
             (shifted * 255.).to(th.uint8).reshape(M, M, 5)[..., :3].cpu().numpy()
         )

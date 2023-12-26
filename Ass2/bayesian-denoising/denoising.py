@@ -89,7 +89,7 @@ def denoise(
         # resp_comp = np.argmax(resp, axis=1)
         resp_comp = np.argmax(beta, axis=1)
         # update x_est
-        x_bar = np.sum(np.multiply(A[resp_comp], (lamda * x_est + b[resp_comp])[:, :, None]), axis=1)
+        x_bar = np.sum(np.multiply(A[resp_comp], (lamda * y + b[resp_comp])[:, :, None]), axis=1)
         x_est = alpha * x_est + (1 - alpha) * x_bar
 
     return x_est
