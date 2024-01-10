@@ -19,7 +19,46 @@ def diffusion_tensor(
 ):
     # Implement the diffusion tensor (9)
     # Keep in mind which operations require a flattened image, and which don't
-    return sp.eye(2 * u.size)
+
+    U_x = gaussian_filter(u, sigma_u, order=[1,0])
+    U_y = gaussian_filter(u, sigma_u, order=[0,1])
+
+
+    Sxx = gaussian_filter(np.multiply(U_x,U_y), sigma_g)
+    Syx = gaussian_filter(np.multiply(U_y, U_x), sigma_g)
+    Sxy = gaussian_filter(np.multiply(U_x, U_y), sigma_g)
+    Syy = gaussian_filter(np.multiply(U_y, U_y), sigma_g)
+
+    S = np.array([[Sxx, Sxy], [Syx, Syy]])
+
+    d = np.zeros(u.shape)
+
+    for i in range(0, u.shape[0]):
+        for j in range(0, u.shape[1]):
+            [mu_1,mu_2],v = np.linalg.eig(np.array([[S[0,0][i,j],S[0,1][i,j]],[S[1,0][i,j],S[1,1][i,j]]]))
+
+            # Creating the diagonal matrix with the eigenvalues
+            vt = np.transpose(v)
+
+            #Creating lambda_1 and lambda_2 for either CED or EED
+            if mode == 'ced':
+                lambda_1 = alpha
+                x = mu_1 - mu_2
+                g = np.exp(-(x**2 / (2 * gamma**2)))
+                lambda_2 = alpha + (1 - alpha) * (1 - g)
+            elif mode == 'eed':
+                #Warning gamma is in this case delta
+                lambda_1 = (1 + (mu_1 / gamma**2))**(-1/2)
+                lambda_2 = 1
+            else:
+                raise ValueError("Invalid mode. Supported modes are 'ced' and 'eed'.")
+
+            d123 = v * np.array([[lambda_1, 0],[0, lambda_2]]) * vt
+
+            d[i,j] = np.array([[np.diag(d123[0,0]),np.diag(d123[0,1])],[np.diag(d123[1,0]),np.diag(d123[1,1])]])
+
+
+    return d
 
 
 def nonlinear_anisotropic_diffusion(
