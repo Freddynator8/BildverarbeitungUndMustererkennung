@@ -20,22 +20,25 @@ def diffusion_tensor(
     # Implement the diffusion tensor (9)
     # Keep in mind which operations require a flattened image, and which don't
 
-    U_x = gaussian_filter(u, sigma_u, order=[1,0])
-    U_y = gaussian_filter(u, sigma_u, order=[0,1])
+    U_x, U_y = (nabla @ gaussian_filter(u, sigma_u,).ravel()).reshape(2, *u.shape)
 
 
-    Sxx = gaussian_filter(np.multiply(U_x,U_y), sigma_g)
+    Sxx = gaussian_filter(np.multiply(U_x, U_x), sigma_g)
     Syx = gaussian_filter(np.multiply(U_y, U_x), sigma_g)
     Sxy = gaussian_filter(np.multiply(U_x, U_y), sigma_g)
     Syy = gaussian_filter(np.multiply(U_y, U_y), sigma_g)
 
     S = np.array([[Sxx, Sxy], [Syx, Syy]])
 
-    d = np.zeros(u.shape)
+    d = np.zeros(S.shape)
 
     for i in range(0, u.shape[0]):
         for j in range(0, u.shape[1]):
             [mu_1,mu_2],v = np.linalg.eig(np.array([[S[0,0][i,j],S[0,1][i,j]],[S[1,0][i,j],S[1,1][i,j]]]))
+
+            if(mu_1 < mu_2):
+                mu_1,mu_2 = mu_2,mu_1
+                v = np.array([[v[1,0],v[1,1]],[v[0,0],v[0,1]]])
 
             # Creating the diagonal matrix with the eigenvalues
             vt = np.transpose(v)
@@ -53,11 +56,10 @@ def diffusion_tensor(
             else:
                 raise ValueError("Invalid mode. Supported modes are 'ced' and 'eed'.")
 
-            d123 = v * np.array([[lambda_1, 0],[0, lambda_2]]) * vt
+            d[:,:,i,j] = v * np.array([[lambda_1, 0],[0, lambda_2]]) * vt
+    d = d.reshape(2,2, u.size)
 
-            d[i,j] = np.array([[np.diag(d123[0,0]),np.diag(d123[0,1])],[np.diag(d123[1,0]),np.diag(d123[1,1])]])
-
-
+    d = sp.bmat([[sp.diags(d[0,0]),sp.diags(d[0,1])],[sp.diags(d[1,0]),sp.diags(d[1,1])]])
     return d
 
 
