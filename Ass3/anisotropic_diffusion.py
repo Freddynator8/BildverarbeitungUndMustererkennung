@@ -34,14 +34,16 @@ def diffusion_tensor(
 
     for i in range(0, u.shape[0]):
         for j in range(0, u.shape[1]):
-            [mu_1,mu_2],v = np.linalg.eig(np.array([[S[0,0][i,j],S[0,1][i,j]],[S[1,0][i,j],S[1,1][i,j]]]))
+            [mu_1,mu_2],[v1,v2] = np.linalg.eig(np.array([[S[0,0][i,j],S[0,1][i,j]],[S[1,0][i,j],S[1,1][i,j]]]))
 
             if(mu_1 < mu_2):
                 mu_1,mu_2 = mu_2,mu_1
-                v = np.array([[v[1,0],v[1,1]],[v[0,0],v[0,1]]])
+                v1,v2 = v2,v1
 
-            # Creating the diagonal matrix with the eigenvalues
-            vt = np.transpose(v)
+
+            # A horizontal vector with vertical v1 and vertical v2
+            v = np.array([[v1[0], v2[0]],[v1[1], v2[1]]])
+            vt = np.array([[v1[0], v1[1]],[v2[0], v2[1]]])
 
             #Creating lambda_1 and lambda_2 for either CED or EED
             if mode == 'ced':
@@ -56,7 +58,9 @@ def diffusion_tensor(
             else:
                 raise ValueError("Invalid mode. Supported modes are 'ced' and 'eed'.")
 
-            d[:,:,i,j] = v * np.array([[lambda_1, 0],[0, lambda_2]]) * vt
+            m_mu = np.array([[lambda_1, 0],[0, lambda_2]])
+
+            d[:,:,i,j] = v @ m_mu @ vt
     d = d.reshape(2,2, u.size)
 
     d = sp.bmat([[sp.diags(d[0,0]),sp.diags(d[0,1])],[sp.diags(d[1,0]),sp.diags(d[1,1])]])
